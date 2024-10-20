@@ -14,6 +14,7 @@ corpus_names = {
     "StatPearls": ["statpearls"],
     "Wikipedia": ["wikipedia"],
     "MedText": ["textbooks", "statpearls"],
+    "dtkg":["test"],
     "MedCorp": ["pubmed", "textbooks", "statpearls", "wikipedia"],
 }
 
