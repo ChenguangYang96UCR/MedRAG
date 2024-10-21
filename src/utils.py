@@ -7,6 +7,13 @@ import json
 import torch
 import tqdm
 import numpy as np
+import time
+import openai
+from config import config
+
+openai.api_key = openai.api_key or os.getenv('OPENAI_API_KEY') or config["api_key"]
+openai.api_type = openai.api_type or os.getenv("OPENAI_API_TYPE") or config.get("api_type")
+openai.api_version = openai.api_version or os.getenv("OPENAI_API_VERSION") or config.get("api_version")
 
 corpus_names = {
     "PubMed": ["pubmed"],
@@ -383,3 +390,46 @@ class DocExtracter:
                 item = self.dict[i] if type(i) == str else self.dict[i["id"]]
                 output.append(json.loads(open(os.path.join(self.db_dir, item["fpath"])).read().strip().split('\n')[item["index"]]))
         return output
+
+
+def get_completion(prompt, model_name="gpt-4", max_tokens=250, retry_times=1, temperature=0.9, top_p=1.0):
+    """
+    Generate chat completions using the OpenAI API.
+
+    Parameters:
+    - prompt: The input prompt for the chat.
+    - model: The model to use for generating completions. Default is "gpt-4".
+    - temperature: Controls randomness. Lower values make the model more deterministic. Default is 0.9.
+    - max_tokens: The maximum number of tokens to generate. Default is 250.
+    - top_p: Controls diversity via nucleus sampling: 0.5 means only the most probable 50% of tokens are considered. Default is 1.0.
+    - retry_times: Number of retries if the request fails. Default is 3.
+
+    Returns:
+    A dictionary with the response message, time taken for the request, and tokens consumed.
+    """
+
+    for attempt in range(retry_times):
+        try:
+            start_time = time.time()
+            response = openai.ChatCompletion.create(
+                            model=model_name,
+                            messages=[
+                                {"role": "user", "content": prompt}
+                            ],
+                            temperature=temperature,
+                            max_tokens=max_tokens
+                        )
+
+            end_time = time.time()
+
+            response = response["choices"][0]["message"]["content"]
+            time_taken = end_time - start_time
+            tokens_used = 0
+
+            return response, time_taken, tokens_used
+
+        except Exception as e:
+            print(f"Attempt {attempt + 1} failed: {e}")
+            time.sleep(60)  # Wait for 60 seconds before retrying
+
+    raise ValueError("Failed to generate completion after retrying.")
